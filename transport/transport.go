@@ -36,7 +36,7 @@ type Transporter interface {
 	// grpc
 	// http
 	Kind() Kind
-	// Endpoint return server or client endpoints
+	// Endpoint return server or client endpoint
 	// Server Transport: grpc://127.0.0.1:9000
 	// Client Transport: discovery:///provider-demo
 	Endpoint() string
