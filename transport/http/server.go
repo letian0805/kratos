@@ -105,6 +105,13 @@ func TLSConfig(c *tls.Config) ServerOption {
 	}
 }
 
+// Listener with listener.
+func Listener(lis net.Listener) ServerOption {
+	return func(o *Server) {
+		o.lis = lis
+	}
+}
+
 // Server is an HTTP server wrapper.
 type Server struct {
 	*http.Server
@@ -139,12 +146,12 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.Server = &http.Server{
-		Handler:   FilterChain(srv.filters...)(srv),
-		TLSConfig: srv.tlsConf,
-	}
 	srv.router = mux.NewRouter()
 	srv.router.Use(srv.filter())
+	srv.Server = &http.Server{
+		Handler:   FilterChain(srv.filters...)(srv.router),
+		TLSConfig: srv.tlsConf,
+	}
 	return srv
 }
 
@@ -168,9 +175,14 @@ func (s *Server) HandleFunc(path string, h http.HandlerFunc) {
 	s.router.HandleFunc(path, h)
 }
 
+// HandleHeaders registers a new route with headers.
+func (s *Server) HandleHeaders(handler http.HandlerFunc, pairs ...string) {
+	s.router.Headers(pairs...).Handler(handler)
+}
+
 // ServeHTTP should write reply headers and data to the ResponseWriter and then return.
 func (s *Server) ServeHTTP(res http.ResponseWriter, req *http.Request) {
-	s.router.ServeHTTP(res, req)
+	s.Handler.ServeHTTP(res, req)
 }
 
 func (s *Server) filter() mux.MiddlewareFunc {
@@ -209,18 +221,21 @@ func (s *Server) Endpoint() (*url.URL, error) {
 		if s.endpoint != nil {
 			return
 		}
-		lis, err := net.Listen(s.network, s.address)
+		if s.lis == nil {
+			lis, err := net.Listen(s.network, s.address)
+			if err != nil {
+				s.err = err
+				return
+			}
+			s.lis = lis
+		}
+
+		addr, err := host.Extract(s.address, s.lis)
 		if err != nil {
+			s.lis.Close()
 			s.err = err
 			return
 		}
-		addr, err := host.Extract(s.address, lis)
-		if err != nil {
-			lis.Close()
-			s.err = err
-			return
-		}
-		s.lis = lis
 
 		s.endpoint = endpoint.NewEndpoint("http", addr, s.tlsConf != nil)
 	})
