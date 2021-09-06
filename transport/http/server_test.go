@@ -30,10 +30,13 @@ func TestServer(t *testing.T) {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(testData{Path: r.RequestURI})
 	}
+	register := func(s *Server) {
+		s.Handle("/index/register", http.HandlerFunc(fn))
+	}
 	ctx := context.Background()
 	lis, err := net.Listen("tcp", ":12345")
 	assert.NoError(t, err)
-	srv := NewServer(Listener(lis))
+	srv := NewServer(Listener(lis), ServiceRegisters(ServiceRegisterFunc(register)))
 	srv.HandleFunc("/index", fn)
 	srv.HandleFunc("/index/{id:[0-9]+}", fn)
 	srv.HandleHeaders(fn, "X-Kratos-Test", "1")
@@ -68,6 +71,12 @@ func testClient(t *testing.T, srv *Server) {
 		{"POST", "/index/1"},
 		{"PATCH", "/index/1"},
 		{"DELETE", "/index/1"},
+
+		{"GET", "/index/register"},
+		{"PUT", "/index/register"},
+		{"POST", "/index/register"},
+		{"PATCH", "/index/register"},
+		{"DELETE", "/index/register"},
 
 		{"GET", "/index/notfound"},
 	}

@@ -112,24 +112,53 @@ func Listener(lis net.Listener) ServerOption {
 	}
 }
 
+// ServiceRegister is gRPC service register.
+// examples:
+//   func (greeter *GreeterService) RegisterHTTP(s *Server) {
+//       v1.RegisterGreeterHTTPServer(s, greeter)
+//   }
+type ServiceRegister interface {
+	RegisterHTTP(s *Server)
+}
+
+// ServiceRegisterFunc is service register function.
+// examples:
+//   func(srv *Server) {
+//       v1.RegisterGreeterServer(srv, greeter)
+//   }
+type ServiceRegisterFunc func(s *Server)
+
+// RegisterHTTP can register a service to HTTP Server.
+func (r ServiceRegisterFunc) RegisterHTTP(s *Server) {
+	r(s)
+}
+
+// ServiceRegisters with service registers.
+func ServiceRegisters(registers ...ServiceRegister) ServerOption {
+	return func(s *Server) {
+		s.registers = registers
+	}
+}
+
 // Server is an HTTP server wrapper.
 type Server struct {
 	*http.Server
-	lis      net.Listener
-	tlsConf  *tls.Config
-	once     sync.Once
-	endpoint *url.URL
-	err      error
-	network  string
-	address  string
-	timeout  time.Duration
-	filters  []FilterFunc
-	ms       []middleware.Middleware
-	dec      DecodeRequestFunc
-	enc      EncodeResponseFunc
-	ene      EncodeErrorFunc
-	router   *mux.Router
-	log      *log.Helper
+	lis       net.Listener
+	tlsConf   *tls.Config
+	once      sync.Once
+	endpoint  *url.URL
+	err       error
+	network   string
+	address   string
+	timeout   time.Duration
+	filters   []FilterFunc
+	ms        []middleware.Middleware
+	dec       DecodeRequestFunc
+	enc       EncodeResponseFunc
+	ene       EncodeErrorFunc
+	router    *mux.Router
+	log       *log.Helper
+	registers []ServiceRegister
 }
 
 // NewServer creates an HTTP server by options.
@@ -151,6 +180,9 @@ func NewServer(opts ...ServerOption) *Server {
 	srv.Server = &http.Server{
 		Handler:   FilterChain(srv.filters...)(srv.router),
 		TLSConfig: srv.tlsConf,
+	}
+	for _, r := range srv.registers {
+		r.RegisterHTTP(srv)
 	}
 	return srv
 }

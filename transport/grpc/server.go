@@ -33,12 +33,26 @@ var (
 // ServerOption is gRPC server option.
 type ServerOption func(o *Server)
 
-// ServiceRegister is gRPC service register
+// ServiceRegister is gRPC service register.
+// examples:
+//   func (greeter *GreeterService) Register(r grpc.ServiceRegistrar) {
+//       v1.RegisterGreeterServer(r, greeter)
+//   }
+type ServiceRegister interface {
+	Register(s *Server)
+}
+
+// ServiceRegisterFunc is gRPC service register function.
 // examples:
 //   func(srv *Server) {
 //       v1.RegisterGreeterServer(srv, greeter)
 //   }
-type ServiceRegister func(o *Server)
+type ServiceRegisterFunc func(s *Server)
+
+// Register can register a gRPC service to gRPC Server.
+func (r ServiceRegisterFunc) Register(s *Server) {
+	r(s)
+}
 
 // ServiceRegisters with service registers.
 func ServiceRegisters(registers ...ServiceRegister) ServerOption {
@@ -174,7 +188,7 @@ func NewServer(opts ...ServerOption) *Server {
 	apimd.RegisterMetadataServer(srv.Server, srv.metadata)
 	reflection.Register(srv.Server)
 	for _, r := range srv.registers {
-		r(srv)
+		r.Register(srv)
 	}
 	return srv
 }

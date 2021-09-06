@@ -20,13 +20,21 @@ type testKey struct{}
 func TestServer(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, testKey{}, "test")
-	srv := NewServer(Middleware([]middleware.Middleware{
+	mdws := Middleware([]middleware.Middleware{
 		func(middleware.Handler) middleware.Handler { return nil },
-	}...))
+	}...)
+	registered := false
+	register := func(s *Server) {
+		registered = true
+	}
+	opts := []ServerOption{mdws, ServiceRegisters(ServiceRegisterFunc(register))}
+	srv := NewServer(opts...)
 
 	if e, err := srv.Endpoint(); err != nil || e == nil || strings.HasSuffix(e.Host, ":0") {
 		t.Fatal(e, err)
 	}
+
+	assert.Equal(t, true, registered)
 
 	go func() {
 		// start server
