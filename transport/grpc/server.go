@@ -31,7 +31,7 @@ var (
 )
 
 // ServerOption is gRPC server option.
-type ServerOption func(srv *Server)
+type ServerOption func(o *Server)
 
 // ServiceRegister is gRPC service register
 // examples:
@@ -120,8 +120,7 @@ func Options(opts ...grpc.ServerOption) ServerOption {
 // Server is a gRPC server wrapper.
 type Server struct {
 	*grpc.Server
-	ctx context.Context
-
+	ctx        context.Context
 	tlsConf    *tls.Config
 	lis        net.Listener
 	once       sync.Once
