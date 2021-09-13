@@ -107,6 +107,13 @@ func StrictSlash(strictSlash bool) ServerOption {
 	}
 }
 
+// Listener with listener.
+func Listener(lis net.Listener) ServerOption {
+	return func(o *Server) {
+		o.lis = lis
+	}
+}
+
 // Server is an HTTP server wrapper.
 type Server struct {
 	*http.Server
@@ -220,18 +227,24 @@ func (s *Server) filter() mux.MiddlewareFunc {
 //   http://127.0.0.1:8000?isSecure=false
 func (s *Server) Endpoint() (*url.URL, error) {
 	s.once.Do(func() {
-		lis, err := net.Listen(s.network, s.address)
+		if s.endpoint != nil {
+			return
+		}
+		if s.lis == nil {
+			lis, err := net.Listen(s.network, s.address)
+			if err != nil {
+				s.err = err
+				return
+			}
+			s.lis = lis
+		}
+
+		addr, err := host.Extract(s.address, s.lis)
 		if err != nil {
+			s.lis.Close()
 			s.err = err
 			return
 		}
-		addr, err := host.Extract(s.address, lis)
-		if err != nil {
-			lis.Close()
-			s.err = err
-			return
-		}
-		s.lis = lis
 
 		s.endpoint = endpoint.NewEndpoint("http", addr, s.tlsConf != nil)
 	})
