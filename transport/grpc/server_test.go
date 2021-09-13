@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"testing"
@@ -40,7 +41,10 @@ type testKey struct{}
 func TestServer(t *testing.T) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, testKey{}, "test")
+	lis, err := net.Listen("tcp", ":12345")
+	assert.NoError(t, err)
 	srv := NewServer(
+		Listener(lis),
 		Middleware(
 			func(handler middleware.Handler) middleware.Handler {
 				return func(ctx context.Context, req interface{}) (reply interface{}, err error) {
