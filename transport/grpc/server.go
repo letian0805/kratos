@@ -81,6 +81,7 @@ func Listener(lis net.Listener) ServerOption {
 		s.lis = lis
 		s.address = lis.Addr().String()
 		s.network = "tcp"
+		s.endpoint = &url.URL{Scheme: "grpc", Host: s.address}
 	}
 }
 
