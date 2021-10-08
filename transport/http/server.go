@@ -113,6 +113,7 @@ func Listener(lis net.Listener) ServerOption {
 		o.lis = lis
 		o.address = lis.Addr().String()
 		o.network = "tcp"
+		o.endpoint = &url.URL{Scheme: "http", Host: o.address}
 	}
 }
 
