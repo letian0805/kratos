@@ -21,11 +21,20 @@ type Client struct {
 
 	// resolve service entry endpoints
 	resolver ServiceResolver
+	// service register interceptor
+	registerInterceptor ServiceRegisterInterceptor
+	// healthcheck time interval in seconds
+	healthcheckInterval int
 }
 
 // NewClient creates consul client
 func NewClient(cli *api.Client) *Client {
-	c := &Client{cli: cli, resolver: defaultResolver}
+	c := &Client{
+		cli:                 cli,
+		resolver:            defaultResolver,
+		registerInterceptor: func(asr *api.AgentServiceRegistration) {},
+		healthcheckInterval: 10,
+	}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	return c
 }
@@ -61,6 +70,9 @@ func defaultResolver(_ context.Context, entries []*api.ServiceEntry) []*registry
 
 // ServiceResolver is used to resolve service endpoints
 type ServiceResolver func(ctx context.Context, entries []*api.ServiceEntry) []*registry.ServiceInstance
+
+// ServiceRegisterInterceptor is used to register instance to service
+type ServiceRegisterInterceptor func(asr *api.AgentServiceRegistration)
 
 // Service get services from consul
 func (c *Client) Service(ctx context.Context, service string, index uint64, passingOnly bool) ([]*registry.ServiceInstance, uint64, error) {
@@ -107,17 +119,18 @@ func (c *Client) Register(_ context.Context, svc *registry.ServiceInstance, enab
 		for _, address := range checkAddresses {
 			asr.Checks = append(asr.Checks, &api.AgentServiceCheck{
 				TCP:                            address,
-				Interval:                       "20s",
+				Interval:                       fmt.Sprintf("%ds", c.healthcheckInterval),
 				DeregisterCriticalServiceAfter: "70s",
 			})
 		}
 	}
+	c.registerInterceptor(asr)
 	err := c.cli.Agent().ServiceRegister(asr)
 	if err != nil {
 		return err
 	}
 	go func() {
-		ticker := time.NewTicker(time.Second * 20)
+		ticker := time.NewTicker(time.Second * time.Duration(c.healthcheckInterval))
 		defer ticker.Stop()
 		for {
 			select {
