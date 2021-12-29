@@ -35,7 +35,8 @@ func WithServiceResolver(fn ServiceResolver) Option {
 	}
 }
 
-func WithServiceRegister(fn ServiceRegisterInterceptor) Option {
+// WithServiceRegisterInterceptor with service register interceptor option.
+func WithServiceRegisterInterceptor(fn ServiceRegisterInterceptor) Option {
 	return func(o *Registry) {
 		if o.cli != nil {
 			o.cli.registerInterceptor = fn
@@ -43,6 +44,7 @@ func WithServiceRegister(fn ServiceRegisterInterceptor) Option {
 	}
 }
 
+// WithHealthcheckInterval with healthcheck interval in seconds.
 func WithHealthcheckInterval(interval int) Option {
 	return func(o *Registry) {
 		if o.cli != nil {
